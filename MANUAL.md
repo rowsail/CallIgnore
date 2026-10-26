@@ -261,6 +261,7 @@ CallIgnore/
 ├── gradlew, gradle/wrapper/             Gradle wrapper (8.14.3, checksum-pinned)
 ├── fastlane/metadata/android/en-US/     store listing: descriptions, changelogs, icon, screenshots
 ├── docs/fdroid/                         draft F-Droid metadata for submission
+├── .github/workflows/release.yml        CI: build, test, sign and publish on each v* tag
 ├── README.md, MANUAL.md, LICENSE
 └── keystore.properties, *.keystore      local signing only: git-ignored, never committed
 ```
@@ -341,7 +342,39 @@ adb shell dumpsys package io.github.rowsail.callignore | grep -E 'versionName|gr
 
 ### Updating
 
-Build and `adb install -r` again. The role, permissions and settings survive updates signed with the same key. For releases, increase `versionCode` and `versionName` in `app/build.gradle`, add `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`, and tag the commit `v<versionName>`. F-Droid picks up new versions from the tags.
+Build and `adb install -r` again. The role, permissions and settings survive updates signed with the same key.
+
+### Releasing
+
+Releases are built by GitHub Actions (`.github/workflows/release.yml`):
+
+```sh
+# 1. In app/build.gradle: bump versionCode and versionName
+# 2. Add fastlane/metadata/android/en-US/changelogs/<versionCode>.txt (it becomes the release notes)
+git commit -am "Call Ignore 1.4: …"
+git tag -a v1.4 -m "Call Ignore 1.4"
+git push origin main --tags
+```
+
+When a `v*` tag is pushed, the workflow:
+1. **Checks** that the tag equals `v<versionName>` and that the changelog for `<versionCode>` exists. If not, it stops without publishing anything.
+2. **Builds and signs:** runs the unit tests and builds a release APK signed with the repository's signing secrets.
+3. **Publishes** a GitHub **pre-release** named "Call Ignore <version> (beta)". It attaches `CallIgnore-<version>.apk` and its `.sha256`, and the notes include the changelog plus the APK and signing-certificate SHA-256s.
+
+F-Droid also picks up new versions from the tags.
+
+**Dry run:** **Actions → Release → Run workflow** (or `gh workflow run release.yml`) does the same build and signing without publishing anything. The signed APK is kept as a workflow artifact for 90 days.
+
+**Signing secrets** (repository **Settings → Secrets and variables → Actions**):
+
+| Secret | Contents |
+|---|---|
+| `KEYSTORE_BASE64` | `base64 -w0 callignore.keystore` |
+| `KEYSTORE_PASSWORD` | store password |
+| `KEY_ALIAS` | key alias |
+| `KEY_PASSWORD` | key password |
+
+Anyone who can change the workflows in this repository can use the key, so give write access sparingly. If the key is ever exposed, generate a new one and replace the secrets. Users will then have to uninstall once, since Android rejects updates signed with a different key.
 
 ---
 
