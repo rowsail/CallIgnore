@@ -1,5 +1,10 @@
 # Call Ignore
 
+> [!WARNING]
+> **This is beta software and not ready for everyday use.** The rule matching is covered by automated tests, but the call-handling paths (ignore, voicemail, and especially answer & hang up) have not yet been tested with real incoming calls. Don't rely on it to screen calls that matter.
+>
+> **Testers are very welcome.** If you try it, please [open an issue](https://github.com/rowsail/CallIgnore/issues). Say what you expected and what happened, and include your phone model, Android version and carrier, plus the output of `adb logcat -s CallIgnore` if you can.
+
 An Android app that screens incoming calls against number patterns you write yourself, before the phone rings.
 
 | Action | What happens |
