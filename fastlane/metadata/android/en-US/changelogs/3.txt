@@ -1,0 +1,4 @@
+• Rules can now be regular expressions, tested against the number in +E.164 form, e.g. ^\+1(268|876)\d{7}$
+• Simple wildcard rules now start with "=", e.g. =888*. Saved rules are converted automatically.
+• Preloaded rule: ignore Caribbean "one-ring" scam area codes
+• Bad regexes are reported with their position; wildcard-looking lines missing "=" are flagged

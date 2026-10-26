@@ -1,6 +1,6 @@
 # Call Ignore — Technical Manual
 
-Version 1.1 (versionCode 2) · package `io.github.rowsail.callignore` · Android 10 (API 29) and later, built against API 36
+Version 1.2 (versionCode 3) · package `io.github.rowsail.callignore` · Android 10 (API 29) and later, built against API 36
 
 Call Ignore screens incoming phone calls against a user-editable list of number patterns. For each match it can let the call ring, ignore it silently, send it to voicemail, or answer it and hang up immediately. It is free software (GPL-3.0-or-later), built with Gradle, and it has no network access. Source: https://github.com/rowsail/CallIgnore
 
@@ -71,15 +71,56 @@ The app hangs up only once the call is *off-hook*, because `endCall()` on a call
 The rules are plain text, edited on the main screen.
 
 ```
-<pattern> [action]   # optional comment
+<regex>    [action]   # optional comment
+=<pattern> [action]   # optional comment
 ```
 
-- **One rule per line.** Blank lines and anything after `#` are ignored.
+A rule is either a **regular expression** (any line) or, with a leading `=`, a **simple wildcard pattern**. Both kinds can be mixed in one list.
+
+- **One rule per line.** Blank lines are ignored.
+- **Comments:** a `#` starts a comment only at the beginning of a line or after a space or tab. So a `#` inside a regex (`[#*]`) is part of the regex.
 - **First match wins.** Put `allow` exceptions *above* the broader rules they override.
 - **The action** is the last word on the line, if it is one of `allow`, `ignore`, `voicemail` or `answer` (any case). Otherwise the whole line is the pattern and the action is `ignore`.
-- **Separators:** spaces, tabs, `( ) . -` inside a pattern are ignored, so `(404) 555-****` is the same as `404555****`.
 
-### Pattern characters
+### Preloaded rules
+
+A new install starts with:
+
+```
+# Caribbean area codes (268 284 473 649 664 767 784 809 829 849 876): "one-ring" call-back scams
+^\+?1?(268|284|473|649|664|767|784|809|829|849|876)\d{7}$  ignore
+# '=' = simple wildcard pattern, e.g.:
+# =877*  voicemail
+# =+44*  answer
+=888*  ignore
+```
+
+The first rule ignores calls from Caribbean NANP area codes, the usual source of "one-ring" scams that try to get you to call back an expensive number. See the note on optional country codes below.
+
+### Regular-expression rules
+
+Any line without a leading `=` is a regular expression.
+
+- **What it's tested against:** the number in **E.164 form**, `+` followed by the international digits, after normalization (see *How incoming numbers are normalized* below). So `(268) 555-1234`, `1 268 555 1234` and `+1 268 555 1234` all reach the regex as `+12685551234`.
+- **"Find" semantics:** the regex may match anywhere in the number unless you anchor it with `^` and `$`. `5550199` matches any number containing those digits.
+- **Syntax:** Java `java.util.regex`, the familiar Perl/PCRE style: `\d`, `{n}`, `(a|b)`, `[0-9]`, `(?:…)` and so on. No delimiters and no extra escaping: write the regex exactly as you would anywhere else. `/` and `#` need no escaping, and spaces are allowed.
+- **Errors** are listed under the editor with ✗ and the line is skipped: `bad regex: <reason> near position N`.
+
+**Watch out for optional country codes.** NANP numbers always arrive as `+1` followed by ten digits, so a `1?` in the regex isn't needed, and it can match more than intended. The preloaded rule `^\+?1?(268|…|876)\d{7}$` matches every Caribbean number. But because `1?` is optional, it also matches some numbers in other countries: Norway's `+47 32 22 33 34` arrives as `+4732223334`, which the regex reads as `+`, `473`, `2223334`. To rule that out, use `^\+1(268|284|473|649|664|767|784|809|829|849|876)\d{7}$`. Use **Test a number** to check edge cases like this.
+
+| Regex rule | Matches | Doesn't match |
+|---|---|---|
+| `^\+1(268\|876)\d{7}$` | +1 268 and +1 876 numbers | `+4732223334` |
+| `^\+44 voicemail` | every UK number | |
+| `^\+1800\d{7}$ allow` | US toll-free 800 numbers (an exception) | |
+| `(\d)\1{6}` | any number with the same digit 7 times in a row | |
+| `5550199` | any number containing 5550199 | |
+
+**Wildcard-looking lines get a warning.** A line made only of digits and `*` or `?` but no `=` is probably a wildcard pattern with the `=` forgotten. As a regex it means something very different: `888*` is "`88` followed by any number of `8`s, anywhere in the number", which catches far more than area code 888. Such lines are kept as regexes, but flagged under the editor with ⚠ and the suggestion `=888*`. Invalid ones, such as `+44*`, are rejected with ✗ and the same suggestion.
+
+### Wildcard (`=`) rules
+
+A line starting with `=` uses simple wildcard matching. Spaces, tabs and `( ) . -` inside the pattern are ignored, so `= (404) 555-****` is the same as `=404555****`.
 
 | Character | Meaning |
 |---|---|
@@ -88,14 +129,22 @@ The rules are plain text, edited on the main screen.
 | `?` | Exactly one digit |
 | leading `+` | International pattern (see below) |
 
-Anything else makes the line invalid. It's listed under the editor as `Line N: can't understand "…"`, and the line is skipped.
+Anything else makes the line invalid: `can't understand wildcard pattern "…"`.
 
-### US/Canada patterns versus international ones
-
-- **Without `+`: a North American (NANP) pattern.** It's matched against the **10-digit national number** (area code + exchange + line). A leading `1` followed by a digit is dropped, so `1888*` means the same as `888*`. These patterns never match numbers outside +1.
+- **Without `+`: a North American (NANP) pattern.** It's matched against the **10-digit national number** (area code + exchange + line). A leading `1` followed by a digit is dropped, so `=1888*` means the same as `=888*`. These patterns never match numbers outside +1.
 - **With `+`: an international pattern.** It's matched against the **full international number including country code**, with no `+`.
 
-The whole number must match, so `888` only matches a number that is exactly "888".
+Unlike a regex, a wildcard must match the **whole** number, so `=888` only matches a number that is exactly "888".
+
+| Rule | Matches | Doesn't match |
+|---|---|---|
+| `=888*` | any +1 888 number | `+888…` (not NANP) |
+| `=1877* voicemail` | any +1 877 number, sent to voicemail | |
+| `=404555????` | +1 404 555 0000 to 9999 | `4045551` (too short) |
+| `=*9999` | any NANP number ending 9999 | |
+| `=+44*` | any UK number | `44…` without `+` (that's read as NANP) |
+| `=+44 20 *` | London numbers | other UK numbers |
+| `=4045551234 allow` | exactly that number, which then rings normally | |
 
 ### How incoming numbers are normalized (`Rules.international`)
 
@@ -107,29 +156,25 @@ The whole number must match, so `888` only matches a number that is exactly "888
 | Starts with `011` | the `011` is dropped (US international dialling prefix) |
 | Anything else | its digits unchanged |
 
-The NANP national number is the last 10 digits of an 11-digit number beginning with `1`. Any other number has no national form, so only `+` patterns can match it.
+Regex rules see `+` followed by the result. NANP wildcard rules see the last 10 digits of an 11-digit number beginning with `1`. Any other number has no national form, so only `+` wildcards and regexes can match it.
 
-### Examples
-
-| Rule | Matches | Doesn't match |
-|---|---|---|
-| `888*` | any +1 888 number | `+888…` (not NANP) |
-| `1877* voicemail` | any +1 877 number, sent to voicemail | |
-| `404555????` | +1 404 555 0000 to 9999 | `4045551` (too short) |
-| `*9999` | any NANP number ending 9999 | |
-| `+44*` | any UK number | `44…` without `+` (that's read as NANP) |
-| `+44 20 *` | London numbers | other UK numbers |
-| `4045551234 allow` | exactly that number, which then rings normally | |
-
-A typical rule list:
+### A typical rule list
 
 ```
-4045551234 allow       # exception: must be above 404555*
-404555*    answer
-888*                   # ignore is the default
-877*       voicemail
-+44*       ignore
+=4045551234 allow       # exception: must be above the 404 rule
+=404555*    answer
+# Caribbean one-ring scams
+^\+1(268|284|473|649|664|767|784|809|829|849|876)\d{7}$
+=888*                   # ignore is the default
+=877*       voicemail
+^\+44       ignore
 ```
+
+### Upgrading from 1.1
+
+Version 1.1 had only wildcard rules, written without `=`. On the first start after upgrading, saved rules are converted automatically (rule format 2):
+- **Unchanged defaults:** if the saved rules are exactly the old default list, they're replaced by the new preloaded list.
+- **Your own rules:** every rule line gets an `=` prefix, so it keeps its meaning. Comments and blank lines are kept.
 
 ---
 
@@ -150,7 +195,7 @@ All on one screen (`MainActivity`), built in code with no layout files:
 | **Make Call Ignore the call-screening app** | Shown only when the role isn't held; opens Android's role request dialog. |
 | **Allow "answer & hang up"** | Shown only when permissions are missing; asks for *Phone calls → answer* and *Phone status*. |
 | **Hidden / withheld numbers** | Drop-down choosing the action for hidden callers. Saved immediately. |
-| **Rules** editor | Monospace, multi-line and horizontally scrolling. Below it: rule count, saved/unsaved state and any line errors, updated as you type. |
+| **Rules** editor | Monospace, multi-line and horizontally scrolling. Below it: rule count, saved/unsaved state, any errors (✗, line skipped) and warnings (⚠, e.g. a wildcard missing its `=`), updated as you type. |
 | **Save rules** | Saves the editor contents. **Rules take effect only after saving.** |
 | **Test a number** | Type or paste any number to see what the *editor's current text* would do with it, including the matching rule. Unsaved edits are tested too. |
 | **Last 20 screened calls** | Newest first: time, number, action taken, matching rule. Only blocked, voicemail and answered calls are logged; allowed calls aren't. |
@@ -165,7 +210,8 @@ Everything is in one private SharedPreferences file, `callignore` (`/data/data/i
 | Key | Type | Default | Contents |
 |---|---|---|---|
 | `enabled` | boolean | `true` | Screening switch |
-| `rules` | string | sample text with `888*  ignore` | Rule editor text, verbatim |
+| `rules` | string | the preloaded rules (§3) | Rule editor text, verbatim |
+| `rulesFormat` | int | `1` if absent | Rule syntax version. `2` = bare lines are regexes and wildcards need `=`. Older saved rules are migrated on first read. |
 | `hidden` | string | `allow` | Hidden-number action keyword |
 | `log` | string | empty | Up to 20 lines, newest first: `when⇥number⇥action label⇥rule` |
 
@@ -294,17 +340,14 @@ Build and `adb install -r` again. The role, permissions and settings survive upd
 
 ### Automated (off-device)
 
-`app/src/test/java/io/github/rowsail/callignore/RulesTest.java` (JUnit 4) covers:
-- NANP numbers in several formats
-- leading-`1` patterns
-- an `allow` exception placed before a broader rule
-- separators inside patterns
-- international `+` patterns
-- `011` dialling
-- suffix wildcards
-- a 7-digit pattern that must not match 10-digit numbers
-- `+888…` not being treated as NANP
-- invalid-line reporting
+`app/src/test/java/io/github/rowsail/callignore/RulesTest.java` (18 JUnit 4 tests) covers:
+- **Wildcards:** NANP numbers in several formats, leading-`1` patterns, separators, international `+` patterns, `011` dialling, suffix wildcards, whole-number matching, and `+888…` not being treated as NANP
+- **Regexes:** the preloaded Caribbean rule (including its optional-`1` pitfall) and the strict alternative; find semantics; `#`, `/` and spaces inside a regex
+- **Ordering:** first match wins across both kinds of rule
+- **Errors and warnings:** invalid wildcards and regexes, wildcard-looking regexes, and the `=` hint
+- **Comments:** comment parsing
+- **Defaults and migration:** the preloaded rules parse with no errors or warnings, and the 1.1 → 1.2 rule migration works
+- **Display:** number formatting
 
 Run them with `./gradlew test`. The report is written to `app/build/reports/tests/`.
 
@@ -314,7 +357,7 @@ Use **Test a number** to check rules without a real call.
 
 The call-handling paths only run with a real incoming call. To test them, use a second phone whose number **isn't in the contacts**:
 
-1. Add `<second number> ignore` and save, then call. The phone should stay silent; the caller hears ringback; the log shows *Ignore silently*.
+1. Add `=<second number> ignore` (the `=` makes it an exact-number wildcard) and save, then call. The phone should stay silent; the caller hears ringback; the log shows *Ignore silently*.
 2. Change the action to `voicemail`, save, and call. The call goes straight to voicemail; the log shows *Send to voicemail*.
 3. Change the action to `answer`, save, and call. The call connects and drops at once; the log shows *Answer & hang up*.
 
@@ -326,12 +369,12 @@ adb logcat -s CallIgnore
 
 | Log line | Meaning |
 |---|---|
-| `screen (888) 555-0123 -> IGNORE (888*)` | Decision and matching rule (`null` means no rule matched) |
+| `screen (888) 555-0123 -> IGNORE (=888*)` | Decision and matching rule (`null` means no rule matched) |
 | `answered` | `acceptRingingCall()` was called |
 | `endCall -> true` | The connected call was hung up |
 | `gave up: call never rang` / `never connected` | The answer loop timed out after 5 s |
 
-**Verification status (version 1.1):** the matching rules pass all automated tests. The app installs, holds the role, has both permissions and runs its screen without errors. The call-handling paths above haven't yet been tried with a real incoming call. `acceptRingingCall()` and `endCall()` are deprecated (since API 29), so the `answer` test (step 3) is the one most worth running on each new Android version.
+**Verification status (version 1.2):** the matching rules pass all automated tests. The app installs, holds the role, has both permissions and runs its screen without errors. The call-handling paths above haven't yet been tried with a real incoming call. `acceptRingingCall()` and `endCall()` are deprecated (since API 29), so the `answer` test (step 3) is the one most worth running on each new Android version.
 
 ---
 
@@ -339,6 +382,7 @@ adb logcat -s CallIgnore
 
 | Symptom | Check |
 |---|---|
+| Far more calls are ignored than expected | A wildcard pattern written without `=` is being used as a regex (`888*` matches any number containing `88`). Look for ⚠ under the editor and add the `=`. |
 | Matching calls still ring | Is the status `✓ Screening incoming calls`? Is the switch on? Did you tap **Save rules**? Is the caller in your contacts (contacts are never screened)? What does **Test a number** say for that exact number? |
 | Ignored callers still reach voicemail | Expected: that's the carrier's no-answer forwarding. Use `answer` for those numbers, or turn off no-answer forwarding for the whole line (e.g. `##61#` on many GSM carriers). |
 | `answer` behaves like ignore | Status shows `–`, or the log says `answer permission missing`: grant both permissions (§10). |

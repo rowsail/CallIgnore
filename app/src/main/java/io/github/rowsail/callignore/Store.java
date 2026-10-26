@@ -15,10 +15,27 @@ import java.util.Locale;
 final class Store {
     static final int LOG_SIZE = 20;
     private static final String DEFAULT_RULES =
-            "# examples:\n"
-            + "# 877*  voicemail\n"
-            + "# +44*  answer\n"
-            + "888*  ignore\n";
+            "# Caribbean area codes (268 284 473 649 664 767 784 809 829 849 876): \"one-ring\" call-back scams\n"
+            + "^\\+?1?(268|284|473|649|664|767|784|809|829|849|876)\\d{7}$  ignore\n"
+            + "# '=' = simple wildcard pattern, e.g.:\n"
+            + "# =877*  voicemail\n"
+            + "# =+44*  answer\n"
+            + "=888*  ignore\n";
+
+    /**
+     * Rule syntax version. 1: wildcard patterns bare (and briefly /regex/ in slashes);
+     * 2: bare lines are regexes, wildcards need '='.
+     */
+    private static final int RULES_FORMAT = 2;
+    private static final String[] V1_DEFAULTS = {
+            "# examples:\n# 877*  voicemail\n# +44*  answer\n888*  ignore\n",
+            "# One rule per line: pattern [action]   (first match wins)\n"
+                    + "# Actions: ignore (default), voicemail, answer, allow\n"
+                    + "# 888*           = US/Canada area code 888\n"
+                    + "# +44*           = any UK number\n"
+                    + "# 404555????     = ? is one digit\n"
+                    + "888*  ignore\n",
+    };
 
     private final SharedPreferences p;
 
@@ -29,8 +46,40 @@ final class Store {
     boolean enabled() { return p.getBoolean("enabled", true); }
     void setEnabled(boolean v) { p.edit().putBoolean("enabled", v).apply(); }
 
-    String rules() { return p.getString("rules", DEFAULT_RULES); }
-    void setRules(String v) { p.edit().putString("rules", v).apply(); }
+    String rules() {
+        String saved = p.getString("rules", null);
+        if (saved == null) return DEFAULT_RULES;
+        if (p.getInt("rulesFormat", 1) < RULES_FORMAT) {
+            saved = migrateV1(saved);
+            setRules(saved);
+        }
+        return saved;
+    }
+
+    void setRules(String v) { p.edit().putString("rules", v).putInt("rulesFormat", RULES_FORMAT).apply(); }
+
+    /** Format 1 → 2: unchanged defaults become the new defaults; bare wildcard lines gain '='; "/re/" loses its slashes. */
+    static String migrateV1(String text) {
+        for (String d : V1_DEFAULTS) if (d.equals(text)) return DEFAULT_RULES;
+        StringBuilder out = new StringBuilder();
+        for (String line : text.split("\n", -1)) {
+            String t = line.trim();
+            if (t.isEmpty() || t.startsWith("#")) {
+                out.append(line);
+            } else if (t.startsWith("/")) {
+                int close = -1;
+                for (int i = 1; i < t.length(); i++) {
+                    if (t.charAt(i) == '\\') i++;
+                    else if (t.charAt(i) == '/') { close = i; break; }
+                }
+                out.append(close < 0 ? t : t.substring(1, close).replace("\\/", "/") + t.substring(close + 1));
+            } else {
+                out.append('=').append(t);
+            }
+            out.append('\n');
+        }
+        return out.substring(0, out.length() - 1);
+    }
 
     Rules.Action hiddenAction() {
         Rules.Action a = Rules.Action.fromKeyword(p.getString("hidden", "allow"));

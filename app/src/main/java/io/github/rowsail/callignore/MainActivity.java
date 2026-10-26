@@ -82,10 +82,12 @@ public class MainActivity extends Activity {
         root.addView(hidden);
 
         header("Rules");
-        root.addView(text("One per line: pattern [action]. First match wins.\n"
+        root.addView(text("One per line: pattern [action]   # comment. First match wins.\n"
                 + "Actions: ignore (default) · voicemail · answer · allow\n"
-                + "No '+' = US/Canada (888* = area code 888). '+' = international (+44*).\n"
-                + "* = any digits, ? = one digit. Contacts are never screened.", 13));
+                + "Pattern = regular expression, searched in the number as +E.164 (e.g. +18885550123).\n"
+                + "=pattern = simple wildcard: * any digits, ? one digit;\n"
+                + "  no '+' = US/Canada (=888* is area code 888), '+' = international (=+44*).\n"
+                + "Contacts are never screened.", 13));
         rulesEdit = new EditText(this);
         rulesEdit.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE
                 | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
@@ -170,7 +172,8 @@ public class MainActivity extends Activity {
         boolean dirty = !rulesEdit.getText().toString().equals(store.rules());
         String msg = r.rules.size() + " rule" + (r.rules.size() == 1 ? "" : "s")
                 + (dirty ? " · unsaved changes" : " · saved");
-        if (!r.errors.isEmpty()) msg += "\n" + String.join("\n", r.errors);
+        if (!r.errors.isEmpty()) msg += "\n✗ " + String.join("\n✗ ", r.errors);
+        if (!r.warnings.isEmpty()) msg += "\n⚠ " + String.join("\n⚠ ", r.warnings);
         ruleCheck.setText(msg);
         runTest();
     }
