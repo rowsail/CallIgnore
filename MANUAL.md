@@ -1,6 +1,6 @@
 # Call Ignore — Technical Manual
 
-Version 1.2 (versionCode 3) · package `io.github.rowsail.callignore` · Android 10 (API 29) and later, built against API 36
+Version 1.3 (versionCode 4) · package `io.github.rowsail.callignore` · Android 10 (API 29) and later, built against API 36
 
 Call Ignore screens incoming phone calls against a user-editable list of number patterns. For each match it can let the call ring, ignore it silently, send it to voicemail, or answer it and hang up immediately. It is free software (GPL-3.0-or-later), built with Gradle, and it has no network access. Source: https://github.com/rowsail/CallIgnore
 
@@ -89,13 +89,22 @@ A new install starts with:
 ```
 # Caribbean area codes (268 284 473 649 664 767 784 809 829 849 876): "one-ring" call-back scams
 ^\+?1?(268|284|473|649|664|767|784|809|829|849|876)\d{7}$  ignore
+# Premium-rate: area code 900, and 976 local exchanges in any area code
+^\+1(900\d{7}|\d{3}976\d{4})$  voicemail
+# Toll-free (800 888 877 866 855 844 833)
+^\+1(800|888|877|866|855|844|833)\d{7}$  voicemail
 # '=' = simple wildcard pattern, e.g.:
-# =877*  voicemail
-# =+44*  answer
-=888*  ignore
+# =404555*  answer
+# =+44*  ignore
 ```
 
-The first rule ignores calls from Caribbean NANP area codes, the usual source of "one-ring" scams that try to get you to call back an expensive number. See the note on optional country codes below.
+| Rule | Catches | Action | Notes |
+|---|---|---|---|
+| Caribbean | NANP area codes 268, 284, 473, 649, 664, 767, 784, 809, 829, 849, 876 | ignore | The usual source of "one-ring" scams that try to get you to call back an expensive number. See the note on optional country codes below. |
+| Premium-rate | Area code **900**, and exchange **976** in *any* area code (`(404) 976-1234`) | voicemail | 976 was the old local pay-per-call exchange, not an area code. Some areas have since reused 976 as an ordinary exchange, so a few normal local numbers will also go to voicemail. Add an `allow` rule above it for any you need. |
+| Toll-free | NANP toll-free codes 800, 888, 877, 866, 855, 844, 833 | voicemail | Businesses, including banks, pharmacies and delivery firms, often call from toll-free numbers. Voicemail lets them leave a message. Put an `allow` rule above this one for any you want to ring through, e.g. `=8005551234 allow`. |
+
+When rules are upgraded, an earlier default list that was **never edited** is replaced by the current one. Lists you've changed are left exactly as they are.
 
 ### Regular-expression rules
 
@@ -173,7 +182,7 @@ Regex rules see `+` followed by the result. NANP wildcard rules see the last 10 
 ### Upgrading from 1.1
 
 Version 1.1 had only wildcard rules, written without `=`. On the first start after upgrading, saved rules are converted automatically (rule format 2):
-- **Unchanged defaults:** if the saved rules are exactly the old default list, they're replaced by the new preloaded list.
+- **Unchanged defaults:** if the saved rules are exactly the old default list, they're replaced by the new preloaded list. The same happens on later upgrades: an untouched 1.2 default list becomes the 1.3 one.
 - **Your own rules:** every rule line gets an `=` prefix, so it keeps its meaning. Comments and blank lines are kept.
 
 ---
@@ -340,13 +349,13 @@ Build and `adb install -r` again. The role, permissions and settings survive upd
 
 ### Automated (off-device)
 
-`app/src/test/java/io/github/rowsail/callignore/RulesTest.java` (18 JUnit 4 tests) covers:
+`app/src/test/java/io/github/rowsail/callignore/RulesTest.java` (21 JUnit 4 tests) covers:
 - **Wildcards:** NANP numbers in several formats, leading-`1` patterns, separators, international `+` patterns, `011` dialling, suffix wildcards, whole-number matching, and `+888…` not being treated as NANP
 - **Regexes:** the preloaded Caribbean rule (including its optional-`1` pitfall) and the strict alternative; find semantics; `#`, `/` and spaces inside a regex
 - **Ordering:** first match wins across both kinds of rule
 - **Errors and warnings:** invalid wildcards and regexes, wildcard-looking regexes, and the `=` hint
 - **Comments:** comment parsing
-- **Defaults and migration:** the preloaded rules parse with no errors or warnings, and the 1.1 → 1.2 rule migration works
+- **Defaults and migration:** the preloaded rules parse with no errors or warnings; 900 and 976-exchange numbers and all seven toll-free codes go to voicemail, and near misses don't; the 1.1 → 1.2 migration works; untouched earlier default lists are upgraded and edited ones aren't
 - **Display:** number formatting
 
 Run them with `./gradlew test`. The report is written to `app/build/reports/tests/`.
@@ -374,7 +383,7 @@ adb logcat -s CallIgnore
 | `endCall -> true` | The connected call was hung up |
 | `gave up: call never rang` / `never connected` | The answer loop timed out after 5 s |
 
-**Verification status (version 1.2):** the matching rules pass all automated tests. The app installs, holds the role, has both permissions and runs its screen without errors. The call-handling paths above haven't yet been tried with a real incoming call. `acceptRingingCall()` and `endCall()` are deprecated (since API 29), so the `answer` test (step 3) is the one most worth running on each new Android version.
+**Verification status (version 1.3):** the matching rules pass all automated tests. The app installs, holds the role, has both permissions and runs its screen without errors. The call-handling paths above haven't yet been tried with a real incoming call. `acceptRingingCall()` and `endCall()` are deprecated (since API 29), so the `answer` test (step 3) is the one most worth running on each new Android version.
 
 ---
 

@@ -12,12 +12,14 @@ An Android app that screens incoming calls against number patterns you write you
 Each rule is a **regular expression**, tested against the number in `+E.164` form, or, with a leading `=`, a simple **wildcard** pattern:
 
 ```
+=8005551234 allow    # exceptions go first: the first matching rule wins
 # Caribbean area codes: "one-ring" call-back scams (preloaded)
 ^\+?1?(268|284|473|649|664|767|784|809|829|849|876)\d{7}$  ignore
-=4045551234 allow    # exceptions go first: the first matching rule wins
-=888*                # every US/Canada number in area code 888
-=877*      voicemail
-^\+44      answer    # every UK number
+# Premium-rate 900 and 976 numbers, and toll-free numbers (preloaded)
+^\+1(900\d{7}|\d{3}976\d{4})$  voicemail
+^\+1(800|888|877|866|855|844|833)\d{7}$  voicemail
+=404555*   answer    # wildcard: every number starting (404) 555
+^\+44      ignore    # every UK number
 ```
 
 Wildcards: `*` matches any run of digits and `?` exactly one; without `+` they're US/Canada numbers, with `+` international. A wildcard-looking line without its `=` gets a warning. Hidden and withheld numbers have their own setting, and the last 20 screened calls are logged on the phone.

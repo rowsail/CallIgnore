@@ -12,7 +12,7 @@
 <ul>
 <li>Each rule is a regular expression, tested against the number in international form, e.g. <tt>^\+1(268|876)\d{7}$</tt>.</li>
 <li>Or, starting with <tt>=</tt>, a simple wildcard: <tt>=888*</tt> matches every number in US/Canada area code 888, and <tt>=+44*</tt> every UK number. <tt>*</tt> is any run of digits and <tt>?</tt> is one digit.</li>
-<li>Preloaded rule: ignore Caribbean area codes, the usual source of "one-ring" call-back scams.</li>
+<li>Preloaded rules: ignore Caribbean area codes (the usual source of "one-ring" call-back scams), and send premium-rate (900, 976) and toll-free (800, 888, 877, 866, 855, 844, 833) callers straight to voicemail.</li>
 <li>The first matching rule wins, so exceptions go above broader rules.</li>
 <li>A built-in tester shows what any number would do before a real call arrives, and mistakes are flagged as you type.</li>
 </ul>

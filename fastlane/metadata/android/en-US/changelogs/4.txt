@@ -1,0 +1,2 @@
+• Preloaded rules: premium-rate 900 numbers and 976 exchanges, and toll-free 800/888/877/866/855/844/833 numbers, go straight to voicemail
+• An unedited default rule list is upgraded automatically; edited lists are left alone

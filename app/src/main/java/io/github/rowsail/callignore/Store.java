@@ -17,10 +17,13 @@ final class Store {
     private static final String DEFAULT_RULES =
             "# Caribbean area codes (268 284 473 649 664 767 784 809 829 849 876): \"one-ring\" call-back scams\n"
             + "^\\+?1?(268|284|473|649|664|767|784|809|829|849|876)\\d{7}$  ignore\n"
+            + "# Premium-rate: area code 900, and 976 local exchanges in any area code\n"
+            + "^\\+1(900\\d{7}|\\d{3}976\\d{4})$  voicemail\n"
+            + "# Toll-free (800 888 877 866 855 844 833)\n"
+            + "^\\+1(800|888|877|866|855|844|833)\\d{7}$  voicemail\n"
             + "# '=' = simple wildcard pattern, e.g.:\n"
-            + "# =877*  voicemail\n"
-            + "# =+44*  answer\n"
-            + "=888*  ignore\n";
+            + "# =404555*  answer\n"
+            + "# =+44*  ignore\n";
 
     /**
      * Rule syntax version. 1: wildcard patterns bare (and briefly /regex/ in slashes);
@@ -36,6 +39,16 @@ final class Store {
                     + "# 404555????     = ? is one digit\n"
                     + "888*  ignore\n",
     };
+    /** Earlier format-2 default lists; a saved list still equal to one was never edited, so it's upgraded. */
+    private static final String[] V2_DEFAULTS = {
+            // 1.2
+            "# Caribbean area codes (268 284 473 649 664 767 784 809 829 849 876): \"one-ring\" call-back scams\n"
+                    + "^\\+?1?(268|284|473|649|664|767|784|809|829|849|876)\\d{7}$  ignore\n"
+                    + "# '=' = simple wildcard pattern, e.g.:\n"
+                    + "# =877*  voicemail\n"
+                    + "# =+44*  answer\n"
+                    + "=888*  ignore\n",
+    };
 
     private final SharedPreferences p;
 
@@ -49,10 +62,14 @@ final class Store {
     String rules() {
         String saved = p.getString("rules", null);
         if (saved == null) return DEFAULT_RULES;
-        if (p.getInt("rulesFormat", 1) < RULES_FORMAT) {
-            saved = migrateV1(saved);
-            setRules(saved);
-        }
+        String upgraded = p.getInt("rulesFormat", 1) < RULES_FORMAT ? migrateV1(saved) : upgradeDefaults(saved);
+        if (!upgraded.equals(saved)) setRules(upgraded);
+        return upgraded;
+    }
+
+    /** An untouched earlier default list becomes the current one; anything the user edited is kept as is. */
+    static String upgradeDefaults(String saved) {
+        for (String d : V2_DEFAULTS) if (d.equals(saved)) return DEFAULT_RULES;
         return saved;
     }
 

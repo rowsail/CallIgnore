@@ -138,8 +138,39 @@ public class RulesTest {
         assertEquals(d.errors.toString(), 0, d.errors.size());
         assertEquals(d.warnings.toString(), 0, d.warnings.size());
         expect(d, "+18765550123", Rules.Action.IGNORE, CARIBBEAN);
-        expect(d, "8885550123", Rules.Action.IGNORE, "=888*");
         expect(d, "+14045550123", Rules.Action.ALLOW, null);
+    }
+
+    private static final String PREMIUM = "^\\+1(900\\d{7}|\\d{3}976\\d{4})$";
+    private static final String TOLL_FREE = "^\\+1(800|888|877|866|855|844|833)\\d{7}$";
+
+    @Test public void defaultPremiumRateToVoicemail() {
+        Rules d = Rules.parse(defaultRules());
+        expect(d, "9005550123", Rules.Action.VOICEMAIL, PREMIUM);            // area code 900
+        expect(d, "+1 404 976 1234", Rules.Action.VOICEMAIL, PREMIUM);       // 976 exchange, any area code
+        expect(d, "(212) 976-0000", Rules.Action.VOICEMAIL, PREMIUM);
+        expect(d, "+14045559760", Rules.Action.ALLOW, null);                 // 976 elsewhere in the number
+        expect(d, "+19765550123", Rules.Action.ALLOW, null);                 // 976 as an area code isn't premium
+    }
+
+    @Test public void defaultTollFreeToVoicemail() {
+        Rules d = Rules.parse(defaultRules());
+        for (String code : new String[]{"800", "888", "877", "866", "855", "844", "833"})
+            expect(d, code + "5550123", Rules.Action.VOICEMAIL, TOLL_FREE);
+        expect(d, "+18225550123", Rules.Action.ALLOW, null);                 // 822 is reserved, not in the list
+        expect(d, "+448005550123", Rules.Action.ALLOW, null);                // UK 0800 isn't NANP toll-free
+    }
+
+    @Test public void untouchedEarlierDefaultsAreUpgraded() {
+        String v12 = "# Caribbean area codes (268 284 473 649 664 767 784 809 829 849 876): \"one-ring\" call-back scams\n"
+                + "^\\+?1?(268|284|473|649|664|767|784|809|829|849|876)\\d{7}$  ignore\n"
+                + "# '=' = simple wildcard pattern, e.g.:\n"
+                + "# =877*  voicemail\n"
+                + "# =+44*  answer\n"
+                + "=888*  ignore\n";
+        assertEquals(defaultRules(), Store.upgradeDefaults(v12));
+        assertEquals(v12 + "=404*\n", Store.upgradeDefaults(v12 + "=404*\n"));  // edited: left alone
+        assertEquals(defaultRules(), Store.upgradeDefaults(defaultRules()));
     }
 
     @Test public void migrationFromFormat1() {
