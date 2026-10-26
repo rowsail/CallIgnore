@@ -1,0 +1,32 @@
+<p>Call Ignore screens incoming calls against a list of number patterns you write yourself, and decides what happens before the phone rings.</p>
+
+<p><b>Actions, per pattern</b></p>
+<ul>
+<li><b>Ignore</b>: no ring, no screen, no notification. The phone behaves as if the call isn't happening.</li>
+<li><b>Voicemail</b>: reject the call so it goes straight to voicemail.</li>
+<li><b>Answer &amp; hang up</b>: answer and immediately disconnect, so the caller never reaches voicemail.</li>
+<li><b>Allow</b>: an exception that lets a number ring normally.</li>
+</ul>
+
+<p><b>Patterns</b></p>
+<ul>
+<li><tt>888*</tt> matches every number with US/Canada area code 888.</li>
+<li><tt>+44*</tt> matches every UK number.</li>
+<li><tt>*</tt> is any run of digits, <tt>?</tt> is one digit, and spaces, dashes and brackets are ignored, so you can paste numbers as they are.</li>
+<li>The first matching rule wins, so exceptions go above broader rules.</li>
+<li>A built-in tester shows what any number would do before a real call arrives.</li>
+</ul>
+
+<p>Hidden and withheld numbers have their own setting. The last 20 screened calls are kept in a log on the phone.</p>
+
+<p><b>Privacy</b>: no internet permission, no contacts access, no tracking, no ads. Rules and the log never leave the device.</p>
+
+<p><b>Things to know</b></p>
+<ul>
+<li>Android only lets screening apps see calls from numbers that aren't in your contacts.</li>
+<li>Android still records blocked calls in the call log.</li>
+<li>An ignored call keeps ringing on the network side, so if your carrier forwards unanswered calls to voicemail, the caller may still reach it when the ring timer runs out. Use "answer &amp; hang up" to prevent that.</li>
+<li>Answering confirms to robocallers that the number is live, so use that action sparingly.</li>
+</ul>
+
+<p>After installing, open the app and make it the phone's call-screening app. "Answer &amp; hang up" also needs the Phone permissions.</p>

@@ -1,0 +1,5 @@
+First public release.
+• Ignore, voicemail, answer & hang up, or allow calls by number pattern
+• Wildcards: * (any digits) and ? (one digit); US/Canada and international (+) patterns
+• Separate setting for hidden/withheld numbers
+• Number tester and a log of the last 20 screened calls
